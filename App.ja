@@ -1,0 +1,1032 @@
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Dimensions
+} from "react-native";
+
+const { width } = Dimensions.get("window");
+
+const BUTTON_GAP = 7;
+const BUTTON_WIDTH = (width - 32 - BUTTON_GAP * 4) / 5;
+
+export default function App() {
+  const [display, setDisplay] = useState("0");
+  const [expression, setExpression] = useState("");
+  const [memory, setMemory] = useState(0);
+  const [angleMode, setAngleMode] = useState("DEG");
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [second, setSecond] = useState(false);
+
+  const isOperator = (value) =>
+    ["+", "-", "×", "÷", "^"].includes(value);
+
+  const append = (value) => {
+    if (display === "Error") {
+      setDisplay(value);
+      setExpression(value);
+      return;
+    }
+
+    if (display === "0" && ![".", ")"].includes(value)) {
+      setDisplay(value);
+      setExpression(value);
+    } else {
+      setDisplay((prev) => prev + value);
+      setExpression((prev) => prev + value);
+    }
+  };
+
+  const clear = () => {
+    setDisplay("0");
+    setExpression("");
+  };
+
+  const backspace = () => {
+    if (display.length <= 1) {
+      clear();
+      return;
+    }
+
+    setDisplay((prev) => prev.slice(0, -1));
+    setExpression((prev) => prev.slice(0, -1));
+  };
+
+  const factorial = (n) => {
+    if (n < 0 || !Number.isInteger(n)) {
+      throw new Error("Invalid factorial");
+    }
+
+    let result = 1;
+
+    for (let i = 2; i <= n; i++) {
+      result *= i;
+    }
+
+    return result;
+  };
+
+  const nCr = (n, r) => {
+    if (
+      !Number.isInteger(n) ||
+      !Number.isInteger(r) ||
+      n < 0 ||
+      r < 0 ||
+      r > n
+    ) {
+      throw new Error("Invalid nCr");
+    }
+
+    return factorial(n) / (factorial(r) * factorial(n - r));
+  };
+
+  const nPr = (n, r) => {
+    if (
+      !Number.isInteger(n) ||
+      !Number.isInteger(r) ||
+      n < 0 ||
+      r < 0 ||
+      r > n
+    ) {
+      throw new Error("Invalid nPr");
+    }
+
+    return factorial(n) / factorial(n - r);
+  };
+
+  const toRadians = (value) => {
+    return angleMode === "DEG"
+      ? (value * Math.PI) / 180
+      : value;
+  };
+
+  const fromRadians = (value) => {
+    return angleMode === "DEG"
+      ? (value * 180) / Math.PI
+      : value;
+  };
+
+  const calculate = () => {
+    try {
+      let exp = expression;
+
+      if (!exp) return;
+
+      exp = exp
+        .replace(/×/g, "*")
+        .replace(/÷/g, "/")
+        .replace(/π/g, "Math.PI")
+        .replace(/\be\b/g, "Math.E")
+        .replace(/\^/g, "**");
+
+      exp = exp.replace(/√(\d+(\.\d+)?)/g, "Math.sqrt($1)");
+
+      const result = Function(
+        `"use strict"; return (${exp})`
+      )();
+
+      if (
+        typeof result !== "number" ||
+        !Number.isFinite(result)
+      ) {
+        throw new Error("Invalid");
+      }
+
+      const rounded =
+        Math.abs(result) < 1e-12
+          ? 0
+          : Number(result.toPrecision(12));
+
+      setDisplay(String(rounded));
+
+      setHistory((prev) => [
+        {
+          expression: display,
+          result: String(rounded)
+        },
+        ...prev
+      ].slice(0, 30));
+
+      setExpression(String(rounded));
+    } catch (error) {
+      setDisplay("Error");
+      setExpression("");
+    }
+  };
+
+  const scientific = (type) => {
+    try {
+      const value = Number(display);
+
+      let result;
+
+      switch (type) {
+        case "sin":
+          result = Math.sin(toRadians(value));
+          break;
+
+        case "cos":
+          result = Math.cos(toRadians(value));
+          break;
+
+        case "tan":
+          result = Math.tan(toRadians(value));
+          break;
+
+        case "asin":
+          result = fromRadians(Math.asin(value));
+          break;
+
+        case "acos":
+          result = fromRadians(Math.acos(value));
+          break;
+
+        case "atan":
+          result = fromRadians(Math.atan(value));
+          break;
+
+        case "log":
+          result = Math.log10(value);
+          break;
+
+        case "ln":
+          result = Math.log(value);
+          break;
+
+        case "sqrt":
+          result = Math.sqrt(value);
+          break;
+
+        case "cbrt":
+          result = Math.cbrt(value);
+          break;
+
+        case "square":
+          result = value ** 2;
+          break;
+
+        case "cube":
+          result = value ** 3;
+          break;
+
+        case "inverse":
+          result = 1 / value;
+          break;
+
+        case "factorial":
+          result = factorial(value);
+          break;
+
+        case "exp":
+          result = Math.exp(value);
+          break;
+
+        case "abs":
+          result = Math.abs(value);
+          break;
+
+        default:
+          return;
+      }
+
+      if (!Number.isFinite(result)) {
+        throw new Error("Invalid");
+      }
+
+      const rounded = Number(result.toPrecision(12));
+
+      setDisplay(String(rounded));
+      setExpression(String(rounded));
+    } catch {
+      setDisplay("Error");
+      setExpression("");
+    }
+  };
+
+  const memoryAction = (type) => {
+    const value = Number(display);
+
+    if (type === "MC") {
+      setMemory(0);
+    }
+
+    if (type === "MR") {
+      setDisplay(String(memory));
+      setExpression(String(memory));
+    }
+
+    if (type === "M+") {
+      setMemory((prev) => prev + value);
+    }
+
+    if (type === "M-") {
+      setMemory((prev) => prev - value);
+    }
+  };
+
+  const percentage = () => {
+    const value = Number(display);
+
+    if (!Number.isNaN(value)) {
+      const result = value / 100;
+      setDisplay(String(result));
+      setExpression(String(result));
+    }
+  };
+
+  const toggleSign = () => {
+    const value = Number(display);
+
+    if (!Number.isNaN(value)) {
+      const result = -value;
+      setDisplay(String(result));
+      setExpression(String(result));
+    }
+  };
+
+  const useHistory = (item) => {
+    setDisplay(item.result);
+    setExpression(item.result);
+    setShowHistory(false);
+  };
+
+  const Button = ({
+    text,
+    onPress,
+    type = "normal",
+    small = false
+  }) => {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={onPress}
+        style={[
+          styles.button,
+          {
+            width: small ? BUTTON_WIDTH * 0.9 : BUTTON_WIDTH
+          },
+          type === "operator" && styles.operatorButton,
+          type === "function" && styles.functionButton,
+          type === "equals" && styles.equalsButton,
+          type === "danger" && styles.dangerButton,
+          type === "memory" && styles.memoryButton
+        ]}
+      >
+        <Text
+          style={[
+            styles.buttonText,
+            type === "operator" && styles.operatorText,
+            type === "function" && styles.functionText,
+            type === "equals" && styles.equalsText,
+            type === "danger" && styles.dangerText
+          ]}
+        >
+          {text}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const buttons = [
+    [
+      {
+        text: second ? "sin⁻¹" : "sin",
+        action: () => scientific(second ? "asin" : "sin"),
+        type: "function"
+      },
+      {
+        text: second ? "cos⁻¹" : "cos",
+        action: () => scientific(second ? "acos" : "cos"),
+        type: "function"
+      },
+      {
+        text: second ? "tan⁻¹" : "tan",
+        action: () => scientific(second ? "atan" : "tan"),
+        type: "function"
+      },
+      {
+        text: "log",
+        action: () => scientific("log"),
+        type: "function"
+      },
+      {
+        text: "ln",
+        action: () => scientific("ln"),
+        type: "function"
+      }
+    ],
+
+    [
+      {
+        text: "√",
+        action: () => scientific("sqrt"),
+        type: "function"
+      },
+      {
+        text: "x²",
+        action: () => scientific("square"),
+        type: "function"
+      },
+      {
+        text: "x³",
+        action: () => scientific("cube"),
+        type: "function"
+      },
+      {
+        text: "xʸ",
+        action: () => append("^"),
+        type: "function"
+      },
+      {
+        text: "1/x",
+        action: () => scientific("inverse"),
+        type: "function"
+      }
+    ],
+
+    [
+      {
+        text: "π",
+        action: () => append("π"),
+        type: "function"
+      },
+      {
+        text: "e",
+        action: () => append("e"),
+        type: "function"
+      },
+      {
+        text: "!",
+        action: () => scientific("factorial"),
+        type: "function"
+      },
+      {
+        text: "nCr",
+        action: () => {
+          const parts = display.split(",");
+          if (parts.length === 2) {
+            const result = nCr(
+              Number(parts[0]),
+              Number(parts[1])
+            );
+            setDisplay(String(result));
+            setExpression(String(result));
+          }
+        },
+        type: "function"
+      },
+      {
+        text: "nPr",
+        action: () => {
+          const parts = display.split(",");
+          if (parts.length === 2) {
+            const result = nPr(
+              Number(parts[0]),
+              Number(parts[1])
+            );
+            setDisplay(String(result));
+            setExpression(String(result));
+          }
+        },
+        type: "function"
+      }
+    ],
+
+    [
+      {
+        text: "MC",
+        action: () => memoryAction("MC"),
+        type: "memory"
+      },
+      {
+        text: "MR",
+        action: () => memoryAction("MR"),
+        type: "memory"
+      },
+      {
+        text: "M+",
+        action: () => memoryAction("M+"),
+        type: "memory"
+      },
+      {
+        text: "M-",
+        action: () => memoryAction("M-"),
+        type: "memory"
+      },
+      {
+        text: "%",
+        action: percentage,
+        type: "function"
+      }
+    ],
+
+    [
+      {
+        text: "C",
+        action: clear,
+        type: "danger"
+      },
+      {
+        text: "⌫",
+        action: backspace,
+        type: "danger"
+      },
+      {
+        text: "(",
+        action: () => append("("),
+        type: "function"
+      },
+      {
+        text: ")",
+        action: () => append(")"),
+        type: "function"
+      },
+      {
+        text: "÷",
+        action: () => append("÷"),
+        type: "operator"
+      }
+    ],
+
+    [
+      {
+        text: "7",
+        action: () => append("7")
+      },
+      {
+        text: "8",
+        action: () => append("8")
+      },
+      {
+        text: "9",
+        action: () => append("9")
+      },
+      {
+        text: "×",
+        action: () => append("×"),
+        type: "operator"
+      },
+      {
+        text: "DEL",
+        action: backspace,
+        type: "danger"
+      }
+    ],
+
+    [
+      {
+        text: "4",
+        action: () => append("4")
+      },
+      {
+        text: "5",
+        action: () => append("5")
+      },
+      {
+        text: "6",
+        action: () => append("6")
+      },
+      {
+        text: "-",
+        action: () => append("-"),
+        type: "operator"
+      },
+      {
+        text: "±",
+        action: toggleSign,
+        type: "function"
+      }
+    ],
+
+    [
+      {
+        text: "1",
+        action: () => append("1")
+      },
+      {
+        text: "2",
+        action: () => append("2")
+      },
+      {
+        text: "3",
+        action: () => append("3")
+      },
+      {
+        text: "+",
+        action: () => append("+"),
+        type: "operator"
+      },
+      {
+        text: "=",
+        action: calculate,
+        type: "equals"
+      }
+    ],
+
+    [
+      {
+        text: "0",
+        action: () => append("0")
+      },
+      {
+        text: ".",
+        action: () => append(".")
+      },
+      {
+        text: "00",
+        action: () => append("00")
+      },
+      {
+        text: "ANS",
+        action: () => append(display),
+        type: "function"
+      },
+      {
+        text: "EXP",
+        action: () => scientific("exp"),
+        type: "function"
+      }
+    ]
+  ];
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="light-content" />
+
+      <View style={styles.container}>
+
+        {/* HEADER */}
+
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.brand}>MAKURO</Text>
+            <Text style={styles.subtitle}>
+              SCIENTIFIC CALCULATOR
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.historyButton}
+            onPress={() => setShowHistory(!showHistory)}
+          >
+            <Text style={styles.historyIcon}>☷</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* DISPLAY */}
+
+        <View style={styles.displayBox}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.expressionScroll}
+          >
+            <Text style={styles.expression}>
+              {expression || "0"}
+            </Text>
+          </ScrollView>
+
+          <Text
+            style={[
+              styles.display,
+              display.length > 12 && styles.smallDisplay
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {display}
+          </Text>
+
+          <View style={styles.displayBottom}>
+            <Text style={styles.mode}>
+              {angleMode}
+            </Text>
+
+            <Text style={styles.memoryIndicator}>
+              {memory !== 0 ? "M" : ""}
+            </Text>
+          </View>
+        </View>
+
+        {/* TOP CONTROLS */}
+
+        <View style={styles.controls}>
+          <TouchableOpacity
+            style={[
+              styles.modeButton,
+              angleMode === "DEG" && styles.modeActive
+            ]}
+            onPress={() =>
+              setAngleMode(
+                angleMode === "DEG" ? "RAD" : "DEG"
+              )
+            }
+          >
+            <Text style={styles.modeText}>{angleMode}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.modeButton,
+              second && styles.modeActive
+            ]}
+            onPress={() => setSecond(!second)}
+          >
+            <Text style={styles.modeText}>2nd</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.modeButton}
+            onPress={() => setShowHistory(!showHistory)}
+          >
+            <Text style={styles.modeText}>HIST</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* HISTORY */}
+
+        {showHistory && (
+          <View style={styles.historyPanel}>
+            <View style={styles.historyHeader}>
+              <Text style={styles.historyTitle}>
+                Calculation History
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => setHistory([])}
+              >
+                <Text style={styles.clearHistory}>
+                  CLEAR
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.historyList}>
+              {history.length === 0 ? (
+                <Text style={styles.emptyHistory}>
+                  No calculations yet
+                </Text>
+              ) : (
+                history.map((item, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.historyItem}
+                    onPress={() => useHistory(item)}
+                  >
+                    <Text style={styles.historyExpression}>
+                      {item.expression}
+                    </Text>
+
+                    <Text style={styles.historyResult}>
+                      = {item.result}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* BUTTONS */}
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.keyboard}
+        >
+          {buttons.map((row, rowIndex) => (
+            <View style={styles.row} key={rowIndex}>
+              {row.map((button, index) => (
+                <Button
+                  key={index}
+                  text={button.text}
+                  onPress={button.action}
+                  type={button.type}
+                />
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+
+        <Text style={styles.footer}>
+          MAKURO • SCIENTIFIC ENGINE • v1.0
+        </Text>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: "#08090d"
+  },
+
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
+    backgroundColor: "#08090d"
+  },
+
+  header: {
+    height: 62,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+
+  brand: {
+    color: "#ffffff",
+    fontSize: 21,
+    fontWeight: "900",
+    letterSpacing: 3
+  },
+
+  subtitle: {
+    color: "#707580",
+    fontSize: 8,
+    letterSpacing: 2,
+    marginTop: 2
+  },
+
+  historyButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: "#15171e",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#272a33"
+  },
+
+  historyIcon: {
+    color: "#ffffff",
+    fontSize: 24
+  },
+
+  displayBox: {
+    minHeight: 145,
+    backgroundColor: "#101218",
+    borderRadius: 20,
+    padding: 18,
+    justifyContent: "flex-end",
+    borderWidth: 1,
+    borderColor: "#242730",
+    marginBottom: 10
+  },
+
+  expressionScroll: {
+    flexGrow: 1,
+    alignItems: "flex-start",
+    justifyContent: "center"
+  },
+
+  expression: {
+    color: "#777d88",
+    fontSize: 17,
+    fontWeight: "500"
+  },
+
+  display: {
+    color: "#ffffff",
+    fontSize: 42,
+    fontWeight: "300",
+    textAlign: "right",
+    marginTop: 5
+  },
+
+  smallDisplay: {
+    fontSize: 30
+  },
+
+  displayBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 8
+  },
+
+  mode: {
+    color: "#9ca3af",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1
+  },
+
+  memoryIndicator: {
+    color: "#8b93a1",
+    fontSize: 11,
+    fontWeight: "800"
+  },
+
+  controls: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 9
+  },
+
+  modeButton: {
+    flex: 1,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "#11131a",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#252832"
+  },
+
+  modeActive: {
+    backgroundColor: "#252932",
+    borderColor: "#6f7785"
+  },
+
+  modeText: {
+    color: "#c6cbd4",
+    fontSize: 11,
+    fontWeight: "800"
+  },
+
+  historyPanel: {
+    maxHeight: 180,
+    backgroundColor: "#11131a",
+    borderRadius: 15,
+    marginBottom: 9,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#252832"
+  },
+
+  historyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8
+  },
+
+  historyTitle: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "800"
+  },
+
+  clearHistory: {
+    color: "#9da4b0",
+    fontSize: 10,
+    fontWeight: "800"
+  },
+
+  historyList: {
+    flexGrow: 0
+  },
+
+  emptyHistory: {
+    color: "#666d78",
+    textAlign: "center",
+    padding: 15,
+    fontSize: 12
+  },
+
+  historyItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#20232b"
+  },
+
+  historyExpression: {
+    color: "#8b929e",
+    fontSize: 11
+  },
+
+  historyResult: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 2
+  },
+
+  keyboard: {
+    paddingTop: 2,
+    paddingBottom: 8
+  },
+
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: BUTTON_GAP
+  },
+
+  button: {
+    height: 54,
+    borderRadius: 15,
+    backgroundColor: "#171920",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#252832"
+  },
+
+  buttonText: {
+    color: "#e8eaf0",
+    fontSize: 17,
+    fontWeight: "700"
+  },
+
+  functionButton: {
+    backgroundColor: "#12151b",
+    borderColor: "#2a2e38"
+  },
+
+  functionText: {
+    color: "#aeb5c0",
+    fontSize: 13
+  },
+
+  memoryButton: {
+    backgroundColor: "#11141a",
+    borderColor: "#242934"
+  },
+
+  operatorButton: {
+    backgroundColor: "#252a34",
+    borderColor: "#343a46"
+  },
+
+  operatorText: {
+    color: "#ffffff",
+    fontSize: 21
+  },
+
+  dangerButton: {
+    backgroundColor: "#25191d",
+    borderColor: "#392328"
+  },
+
+  dangerText: {
+    color: "#ffb8bd",
+    fontSize: 13
+  },
+
+  equalsButton: {
+    backgroundColor: "#e8eaf0",
+    borderColor: "#ffffff"
+  },
+
+  equalsText: {
+    color: "#08090d",
+    fontSize: 23,
+    fontWeight: "900"
+  },
+
+  footer: {
+    color: "#4f5560",
+    textAlign: "center",
+    fontSize: 8,
+    letterSpacing: 1.5,
+    paddingBottom: 6
+  }
+});

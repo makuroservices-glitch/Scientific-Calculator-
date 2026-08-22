@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Makuro Scientific Calculator",
+    "slug": "makuro-scientific-calculator",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.makuro.scientificcalculator"
+    },
+    "android": {
+      "package": "com.makuro.scientificcalculator"
+    }
+  }
+}
